@@ -1,247 +1,223 @@
 #ifndef PROJECT_UTILS_H
 #define PROJECT_UTILS_H
 
-#include <vector>     // For std::vector to store our dataset
-#include <algorithm>  // For std::sort and std::min
-#include <random>     // For random number generation (std::mt19937, std::uniform_int_distribution)
-#include <chrono>     // For timing algorithms (std::chrono::high_resolution_clock)
-#include <iostream>   // For basic input/output (e.g., in main for testing)
-#include <cmath>      // For std::sqrt in Jump Search
-#include <fstream>    // NEW: For file input/output operations (std::ifstream)
-#include <string>     // NEW: For std::getline and string operations
-#include <unordered_set> // For ensuring uniqueness in data generation
+#include <vector>      // For std::vector to store the dataset.
+#include <algorithm>   // For std::sort and std::min.
+#include <random>      // For random number generation (std::mt19937, std::uniform_int_distribution).
+#include <chrono>      // For timing algorithms (std::chrono::high_resolution_clock).
+#include <iostream>    // For console input/output (e.g., printing status messages).
+#include <cmath>       // For std::sqrt used in Jump Search.
+#include <fstream>     // For file input/output operations (std::ifstream).
+#include <string>      // For std::string and std::getline.
+#include <unordered_set> // For ensuring uniqueness during data generation.
+#include <limits>      // For std::numeric_limits, used to clear input buffer
 
-// --- BLAKE'S SECTION: Data Generation & Sorting, Jump Search Implementation, Performance Analysis Setup ---
+/*
+Change Log:
+--------------------------------------------------------------------------------
+Change By: Blake McGahee
+Change Date: 2025-06-28
+Comment: Initial implementation of core utility functions for the "Efficient Data Retrieval: A Search Algorithm Performance Study" project. This includes:
+    - `generateAndSortDataset`: Function to create large datasets of unique, sorted integers.
+    - `jumpSearch`: Implementation of the Jump Search algorithm for sorted arrays.
+    - `measureSearchTime`: A templated utility to accurately measure the execution time of search algorithms.
+    - Initial setup of the `ProjectUtils` namespace and inclusion of necessary standard libraries (`<vector>`, `<algorithm>`, `<random>`, `<chrono>`, `<iostream>`, `<cmath>`).
 
+--------------------------------------------------------------------------------
+Change By: Blake McGahee
+Change Date: 2025-07-01
+Comment: Added robust data loading capabilities and ensured data integrity.
+    - `loadAndSortDatasetFromFile`: New function introduced to load integer datasets from a specified file.
+        - Includes comprehensive error handling for file opening, invalid data formats (`std::invalid_argument`, `std::out_of_range`).
+        - Automatically **removes duplicate entries** from loaded data using `std::unique` after sorting, ensuring all datasets maintain uniqueness.
+        - Sorts the loaded data using `std::sort`, which is a prerequisite for the search algorithms.
+
+--------------------------------------------------------------------------------
+Change By: Blake McGahee
+Change Date: 2025-07-05
+Comment: Refined team section comments for clarity and delegation since we were unable to meet on 7/5.
+    - **Thiago's Section**: Streamlined instructions for the `interpolationSearch` implementation, providing the function signature and a clear directive for his task within the `ProjectUtils` namespace.
+    - **Gerson's Section**: Streamlined instructions for the `main.cpp` for the user interface of Interpolation Search Implementation.
+
+ --------------------------------------------------------------------------------
+*/
+
+// This namespace encapsulates utility functions related to dataset management and search algorithms.
 namespace ProjectUtils {
 
-    /**
-     * @brief Generates a large dataset of unique integers and sorts it.
-     *
-     * This function populates the given vector with a specified number of unique random integers
-     * within a defined range, and then sorts the vector in ascending order.
-     *
-     * @param dataset A reference to the std::vector<int> to be populated and sorted.
-     * @param num_elements The desired number of unique elements (e.g., 1,000,000).
-     * @param min_val The minimum possible value for generated integers.
-     * @param max_val The maximum possible value for generated integers.
+    /*
+     Generates a large dataset of unique integers and sorts it.
+    
+     This function populates the provided vector with a specified number of unique random integers
+     within a defined range. After generation, the vector is sorted in ascending order.
+    
+     @param dataset A reference to the std::vector<int> to be populated and sorted.
+     @param num_elements The desired number of unique elements to generate.
+     @param min_val The minimum possible value for generated integers.
+     @param max_val The maximum possible value for generated integers.
      */
     void generateAndSortDataset(std::vector<int>& dataset, int num_elements, int min_val, int max_val) {
-        dataset.clear();
-        dataset.reserve(num_elements);
+        dataset.clear(); // Clear any existing data in the vector.
+        dataset.reserve(num_elements); // Pre-allocate memory for efficiency.
 
+        // Initialize a Mersenne Twister random number generator with a time-based seed.
         std::mt19937 rng(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+        // Define a uniform integer distribution for the specified range.
         std::uniform_int_distribution<int> dist(min_val, max_val);
 
-        std::unordered_set<int> unique_numbers;
+        std::unordered_set<int> unique_numbers; // Use a hash set to efficiently ensure uniqueness.
         while (unique_numbers.size() < num_elements) {
-            unique_numbers.insert(dist(rng));
+            unique_numbers.insert(dist(rng)); // Generate and insert unique numbers until target size is met.
         }
+        // Assign the unique numbers from the set to the vector.
         dataset.assign(unique_numbers.begin(), unique_numbers.end());
+        // Sort the dataset in ascending order, which is required for Jump Search and Interpolation Search.
         std::sort(dataset.begin(), dataset.end());
 
-        std::cout << "Dataset generated and sorted with " << dataset.size() << " unique elements." << std::endl;
+        std::cout << "Dataset generated and sorted with " << dataset.size() << " unique elements.\n";
     }
 
-    /**
-     * @brief Loads a dataset of integers from a specified file and sorts it.
-     *
-     * This is a NEW function for Blake's responsibility, allowing data to be sourced from a file.
-     * Each integer is expected to be on a new line in the file.
-     *
-     * @param dataset A reference to the std::vector<int> to be populated and sorted.
-     * @param filename The path to the input file containing integers.
-     * @return True if the file was successfully opened and data loaded, false otherwise.
+    /*
+     @brief Loads a dataset of integers from a specified file, removes duplicates, and sorts it.
+     
+     This function reads integers from the given file, with each integer expected on a new line.
+     It includes error handling for file opening and invalid data formats. After loading,
+     the dataset is sorted in ascending order, and then duplicate values are removed.
+     
+     @param dataset A reference to the std::vector<int> to be populated and sorted.
+     @param filename The path to the input file containing integers.
+     @return True if the file was successfully opened and data loaded, false otherwise.
      */
     bool loadAndSortDatasetFromFile(std::vector<int>& dataset, const std::string& filename) {
-        dataset.clear(); // Clear any existing data
-        std::ifstream infile(filename); // Open the file for reading
+        dataset.clear(); // Clear any existing data in the vector.
+        std::ifstream infile(filename); // Attempt to open the file for reading.
 
-        if (!infile.is_open()) {
-            std::cerr << "Error: Could not open file " << filename << std::endl;
-            return false; // Return false if file opening failed
+        if (!infile.is_open()) { // Check if the file failed to open.
+            std::cerr << "Error: Could not open file '" << filename << "'. Please check the path and permissions.\n";
+            return false; // Indicate failure.
         }
 
         std::string line;
         int value;
-        while (std::getline(infile, line)) { // Read file line by line
+        while (std::getline(infile, line)) { // Read the file line by line.
             try {
-                value = std::stoi(line); // Convert string line to integer
-                dataset.push_back(value); // Add to dataset
+                value = std::stoi(line); // Convert the string line to an integer.
+                dataset.push_back(value); // Add the integer to the dataset.
             }
-            catch (const std::invalid_argument& e) {
-                std::cerr << "Warning: Invalid data in file '" << filename << "': '" << line << "' is not an integer. Skipping." << std::endl;
+            catch (const std::invalid_argument& e) { // Catch conversion errors (e.g., non-numeric data).
+                std::cerr << "Warning: Invalid data in file '" << filename << "': '" << line << "' is not a valid integer. Skipping.\n";
             }
-            catch (const std::out_of_range& e) {
-                std::cerr << "Warning: Number out of range in file '" << filename << "': '" << line << "'. Skipping." << std::endl;
+            catch (const std::out_of_range& e) { // Catch overflow/underflow errors for int type.
+                std::cerr << "Warning: Number out of range in file '" << filename << "': '" << line << "'. Skipping.\n";
             }
         }
-        infile.close(); // Close the file
+        infile.close(); // Close the file after reading.
 
-        if (dataset.empty()) {
-            std::cerr << "Warning: No valid data loaded from file " << filename << ". Dataset is empty." << std::endl;
+        if (dataset.empty()) { // Check if any valid data was loaded.
+            std::cerr << "Warning: No valid data loaded from file '" << filename << "'. Dataset is empty.\n";
             return false;
         }
 
-        std::sort(dataset.begin(), dataset.end()); // Sort the loaded data
-        std::cout << "Dataset loaded and sorted from '" << filename << "' with " << dataset.size() << " elements." << std::endl;
-        return true; // Return true on successful load
+        // Sort the loaded data in ascending order.
+        std::sort(dataset.begin(), dataset.end());
+
+        // --- NEW: Remove duplicates after sorting ---
+        // std::unique moves all unique elements to the beginning of the range
+        // and returns an iterator to the end of the unique range.
+        auto last = std::unique(dataset.begin(), dataset.end());
+        // erase then removes the elements from 'last' to the actual end of the vector.
+        dataset.erase(last, dataset.end());
+        // --- END NEW ---
+
+        std::cout << "Dataset loaded, duplicates removed, and sorted from '" << filename << "' with " << dataset.size() << " elements.\n";
+        return true; // Indicate success.
     }
 
-
-    /**
-     * @brief Implements the Jump Search algorithm.
-     *
-     * @param arr The sorted vector of integers to search within.
-     * @param target The integer value to search for.
-     * @return The index of the target if found, otherwise -1.
+    /*
+     @brief Implements the Jump Search algorithm for sorted arrays.
+     
+     Jump Search works by jumping ahead by fixed steps (block size) until the range
+     containing the target value is found. A linear search is then performed within that block.
+     The optimal block size is typically the square root of the array size.
+     
+     @param arr The sorted vector of integers to search within.
+     @param target The integer value to search for.
+     @return The index of the target if found, otherwise -1.
      */
     int jumpSearch(const std::vector<int>& arr, int target) {
         int n = arr.size();
-        if (n == 0) return -1;
+        if (n == 0) return -1; // Handle empty array.
 
+        // Determine the block size (square root of array size).
         int step = static_cast<int>(std::sqrt(n));
 
-        int prev = 0;
+        // Find the block where the target might be present.
+        int prev = 0; // Start of the current block.
         while (prev < n && arr[std::min(step, n) - 1] < target) {
-            prev = step;
-            step += static_cast<int>(std::sqrt(n));
-            if (prev >= n)
+            prev = step; // Move to the start of the next block.
+            step += static_cast<int>(std::sqrt(n)); // Advance the 'step' marker.
+            if (prev >= n) // If 'prev' has moved past the array end, target is not found.
                 return -1;
         }
 
+        // Perform linear search within the identified block (from 'prev' to 'step').
         while (prev < n && arr[prev] < target) {
-            prev++;
+            prev++; // Move linearly through the block.
         }
 
+        // Check if the target is found at the current position.
         if (prev < n && arr[prev] == target) {
-            return prev;
+            return prev; // Target found, return its index.
         }
 
-        return -1;
+        return -1; // Target not found in the array.
     }
 
     /**
-     * @brief Measures the execution time of a given search function.
-     *
-     * @tparam Func A callable type (e.g., a lambda or function pointer) representing the search algorithm.
-     * @param search_func The search function to measure.
-     * @param dataset The dataset to search within.
-     * @param target The value to search for.
-     * @param result_index A reference to an int where the found index will be stored.
-     * @return The duration of the search in microseconds.
+     @brief Measures the execution time of a given search function.
+     
+     This templated function takes a search function (e.g., a lambda or function pointer),
+     the dataset, the target value, and a reference to store the found index.
+     It returns the duration of the search in microseconds.
+     
+     @tparam Func A callable type representing the search algorithm (e.g., `int(const std::vector<int>&, int)`).
+     @param search_func The search function to be measured.
+     @param dataset The dataset (vector) to search within.
+     @param target The value to search for.
+     @param result_index A reference to an int where the found index will be stored.
+     @return The duration of the search in microseconds.
      */
     template<typename Func>
     long long measureSearchTime(Func search_func, const std::vector<int>& dataset, int target, int& result_index) {
-        auto start = std::chrono::high_resolution_clock::now();
-        result_index = search_func(dataset, target);
-        auto end = std::chrono::high_resolution_clock::now();
+        auto start = std::chrono::high_resolution_clock::now(); // Record start time.
+        result_index = search_func(dataset, target);             // Execute the search function.
+        auto end = std::chrono::high_resolution_clock::now();   // Record end time.
+        // Calculate and return the duration in microseconds.
         return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     }
 
 } // namespace ProjectUtils
 
-// --- THIAGO'S SECTION: Interpolation Search Implementation, Search Query Logic, Result Verification ---
-// Thiago, your Interpolation Search function will go here.
-// It should have a signature similar to:
-// int interpolationSearch(const std::vector<int>& arr, int target);
-// You will also handle the logic for taking user input for search queries
-// and verifying/displaying the results using the `measureSearchTime` helper.
+// --- THIAGO'S SECTION: Interpolation Search algorithm ---
+// Thiago, your task is to implement the Interpolation Search algorithm within the ProjectUtils namespace.
+// This function should take a sorted vector of integers and a target value, and return the index
+// of the target if found, or -1 otherwise.
 //
-// Example placeholder for Thiago's function:
+// Function Signature:
+// int interpolationSearch(const std::vector<int>& arr, int target);
+//
+// Remember to include appropriate comments explaining your implementation.
+//
 /*
 namespace ProjectUtils {
     int interpolationSearch(const std::vector<int>& arr, int target) {
-        // Thiago's interpolation search implementation here
-        // ...
-        return -1; // Return index if found, -1 otherwise
+        // Implement your Interpolation Search logic here.
+        // It should efficiently find the target in a sorted array,
+        // leveraging the distribution of values.
+        return -1; // Placeholder: Return the actual index or -1 if not found.
     }
 } // namespace ProjectUtils
 */
 
-
-// --- GERSON'S SECTION: User Interface (CLI/Text) & Output Formatting, Overall Project Integration ---
-// Gerson, your main application logic and UI will go here, likely in a separate .cpp file
-// (e.g., `main.cpp`) that includes this `ProjectUtils.h`.
-// You will implement the menu-driven program and call the functions from ProjectUtils.
-//
-// Example structure for Gerson's `main.cpp`:
-/*
-#include "ProjectUtils.h" // Include this header
-
-int main() {
-    std::vector<int> dataset;
-    const int DATASET_SIZE = 1000000;
-    const int MIN_VAL = 1;
-    const int MAX_VAL = 10000000;
-
-    // Call Blake's data generation function
-    ProjectUtils::generateAndSortDataset(dataset, DATASET_SIZE, MIN_VAL, MAX_VAL);
-
-    // Gerson's UI loop
-    int choice;
-    do {
-        // Print menu options
-        std::cout << "\n-------------------------------------------------\n";
-        std::cout << "|           Search Algorithm Performance Study           |\n";
-        std::cout << "-------------------------------------------------\n";
-        std::cout << "| 1. Generate Dataset                             |\n";
-        std::cout << "| 2. Search (Jump Search)                         |\n";
-        std::cout << "| 3. Search (Interpolation Search)                |\n";
-        std::cout << "| 4. Exit                                         |\n";
-        std::cout << "-------------------------------------------------\n";
-        std::cout << "Output:\n";
-        std::cout << "> Enter choice: ";
-        std::cin >> choice;
-
-        if (choice == 1) {
-            // Re-generate dataset
-            ProjectUtils::generateAndSortDataset(dataset, DATASET_SIZE, MIN_VAL, MAX_VAL);
-        } else if (choice == 2) {
-            // Call Blake's Jump Search and measure time
-            int target;
-            std::cout << "> Enter value to search: ";
-            std::cin >> target;
-            int found_idx;
-            long long duration_us = ProjectUtils::measureSearchTime(
-                [&](const std::vector<int>& arr, int val){ return ProjectUtils::jumpSearch(arr, val); },
-                dataset, target, found_idx
-            );
-            if (found_idx != -1) {
-                std::cout << "Value " << target << " found at index " << found_idx << ".\n";
-            } else {
-                std::cout << "Value " << target << " not found.\n";
-            }
-            std::cout << "Jump Search Time: " << duration_us / 1000.0 << " ms\n";
-
-        } else if (choice == 3) {
-            // Call Thiago's Interpolation Search and measure time
-            // Thiago will implement this part of the UI interaction and call his function.
-            // Example:
-            // int target;
-            // std::cout << "> Enter value to search: ";
-            // std::cin >> target;
-            // int found_idx;
-            // long long duration_us = ProjectUtils::measureSearchTime(
-            //     [&](const std::vector<int>& arr, int val){ return ProjectUtils::interpolationSearch(arr, val); },
-            //     dataset, target, found_idx
-            // );
-            // if (found_idx != -1) {
-            //     std::cout << "Value " << target << " found at index " << found_idx << ".\n";
-            // } else {
-            //     std::cout << "Value " << target << " not found.\n";
-            // }
-            // std::cout << "Interpolation Search Time: " << duration_us / 1000.0 << " ms\n";
-
-        } else if (choice == 4) {
-            std::cout << "Exiting program. Goodbye!\n";
-        } else {
-            std::cout << "Invalid choice. Please try again.\n";
-        }
-    } while (choice != 4);
-
-    return 0;
-}
-*/
 
 #endif // PROJECT_UTILS_H
