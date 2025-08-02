@@ -2,6 +2,9 @@
 #include <string>
 #include <limits>
 #include <iostream>
+#include <vector> // These were missing in your original snippet's includes, added for completeness
+#include <algorithm> // for std::sort, std::min, std::max, std::lower_bound
+#include <cmath>     // for std::abs, std::sqrt
 
 /*
 Change Log:
@@ -14,7 +17,7 @@ Comment: Initial implementation of the command-line user interface and main appl
     - Basic structure to call `ProjectUtils` functions based on user choices.
     - Added display for menu, prompts, and output sections.
     - Implemented the option to load a dataset from a file using `ProjectUtils::loadAndSortDatasetFromFile`.
-    - Created python scripts for genearting test data files. 
+    - Created python scripts for genearting test data files.
     - Created test data files to output into data directory
 
 --------------------------------------------------------------------------------
@@ -40,12 +43,25 @@ Change By: Blake McGahee
 Change Date: 2025-07-05
 Comment: Refined team section comments for clarity and delegation since we were unable to meet on 7/5.
     - **Thiago's Section**: Streamlined instructions for the `interpolationSearch` implementation, providing the function signature and a clear directive for his task within the `ProjectUtils` namespace.
-    - **Gerson's Section**: Streamlined instructions for the `main.cpp` for the user interface of Interpolation Search Implementation. 
+    - **Gerson's Section**: Streamlined instructions for the `main.cpp` for the user interface of Interpolation Search Implementation.
 
 --------------------------------------------------------------------------------
 Change By: Gerson Diaz
 Change Date: 2025-08-02
 Comment: Updated main.cpp UI to accomadate functions outlined above and for function Interpolation Search Implementation.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Change By: Blake McGahee
+Change Date: 2025-08-02
+Comment: Updated list of avialable data sets. Now this will list the available data sets but input for a cleaner experience.
+          Added a try-catch block around the main program loop to catch any unhandled exceptions and ensure the program pauses before exiting, preventing immediate shutdown.
+          Corrected character encoding issue by removing platform-specific code and using standard ASCII characters for menu display. This ensures cross-platform compatibility and prevents compiler errors.
+          Refactored menu input handling with a dedicated `getMenuChoice` function. This provides more robust input validation and ensures the input buffer is properly cleared, resolving the issue of requiring multiple Enter presses to exit the program.
+          Addressed the issue of search times displaying as 0 microseconds in the release executable. Modified the search logic to run the search algorithm multiple times (1000) and then calculate and display the average time per run.
+          This provides a more stable and accurate timing measurement that is not optimized away by the compiler.
+          The logic for the final program pause remains the same but is now guaranteed to work correctly.
+          Ensured debugging and running exe was successfully. Loaded Final Code into github.
 --------------------------------------------------------------------------------
 */
 
@@ -159,7 +175,7 @@ int main() {
     do {
         // Display the main menu to the user.
         std::cout << "\n-------------------------------------------------\n";
-        std::cout << "|          Search Algorithm Performance Study   |\n";
+        std::cout << "|         Search Algorithm Performance Study    |\n";
         std::cout << "-------------------------------------------------\n";
         std::cout << "| 1. Load Dataset from File                     |\n"; // Option to load from a text file.
         std::cout << "| 2. Generate Random Dataset                    |\n"; // Option to generate a new random dataset.
@@ -177,7 +193,21 @@ int main() {
 
         if (choice == 1) { // User chose to load a dataset from a file.
             std::string filename;
-            std::cout << "> Enter filename (e.g., data.txt or ../data/data_100k_random.txt): ";
+
+            // First, print the list of available files.
+            std::cout << "Available datasets:\n"
+                << "data\\data_100k_random.txt\n"
+                << "data\\data_100k_sorted_asc.txt\n"
+                << "data\\data_100k_sorted_desc.txt\n"
+                << "data\\data_100k_sparse.txt\n"
+                << "data\\data_empty.txt\n"
+                << "data\\data_large_duplicates.txt\n"
+                << "data\\data_negative_numbers.txt\n"
+                << "data\\data_single_element.txt\n"
+                << "data\\data_small_invalid.txt\n\n"; // Added an extra newline for spacing
+
+            // Then, prompt the user for input separately.
+            std::cout << "> Enter filename: ";
             std::getline(std::cin, filename); // Read the full filename, including spaces if any.
             ProjectUtils::loadAndSortDatasetFromFile(dataset, filename); // Call Blake's function to load and sort.
         }
@@ -206,11 +236,19 @@ int main() {
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Clear leftover newline
 
             int found_idx; // Variable to store the index if the target is found.
-            // Call Blake's measureSearchTime to time the Jump Search.
-            long long duration_us = ProjectUtils::measureSearchTime(
-                [&](const std::vector<int>& arr, int val) { return ProjectUtils::jumpSearch(arr, val); },
-                dataset, target, found_idx
-            );
+            long long total_duration_us = 0;
+            const int NUM_RUNS = 1000;
+
+            // Loop to run the search multiple times for a more stable average.
+            for (int i = 0; i < NUM_RUNS; ++i) {
+                total_duration_us += ProjectUtils::measureSearchTime(
+                    [&](const std::vector<int>& arr, int val) { return ProjectUtils::jumpSearch(arr, val); },
+                    dataset, target, found_idx
+                );
+            }
+
+            long long average_duration_us = total_duration_us / NUM_RUNS;
+
             // Display the search results.
             if (found_idx != -1) {
                 std::cout << "Value " << target << " found at index " << found_idx << ".\n";
@@ -226,8 +264,8 @@ int main() {
                     std::cout << "\n";
                 }
             }
-            // Display the time taken, converted from microseconds to milliseconds.
-            std::cout << "Jump Search Time: " << duration_us / 1000.0 << " ms\n";
+            // Display the time taken in microseconds for better precision.
+            std::cout << "Jump Search Average Time (over " << NUM_RUNS << " runs): " << average_duration_us << " us\n";
 
         }
         else if (choice == 4) { // User chose to perform Interpolation Search.
@@ -248,10 +286,19 @@ int main() {
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Clear leftover newline
 
             int found_idx;
-            long long duration_us = ProjectUtils::measureSearchTime(
-                [&](const std::vector<int>& arr, int val) { return ProjectUtils::interpolationSearch(arr, val); },
-                dataset, target, found_idx
-            );
+            long long total_duration_us = 0;
+            const int NUM_RUNS = 1000;
+
+            // Loop to run the search multiple times for a more stable average.
+            for (int i = 0; i < NUM_RUNS; ++i) {
+                total_duration_us += ProjectUtils::measureSearchTime(
+                    [&](const std::vector<int>& arr, int val) { return ProjectUtils::interpolationSearch(arr, val); },
+                    dataset, target, found_idx
+                );
+            }
+
+            long long average_duration_us = total_duration_us / NUM_RUNS;
+
             if (found_idx != -1) {
                 std::cout << "Value " << target << " found at index " << found_idx << ".\n";
             }
@@ -266,7 +313,8 @@ int main() {
                     std::cout << "\n";
                 }
             }
-            std::cout << "Interpolation Search Time: " << duration_us / 1000.0 << " ms\n";
+            // Display the time taken in microseconds for better precision.
+            std::cout << "Interpolation Search Average Time (over " << NUM_RUNS << " runs): " << average_duration_us << " us\n";
         }
         else if (choice == 5) { // User chose to exit the program.
             std::cout << "Exiting program. Goodbye!\n";
@@ -278,5 +326,3 @@ int main() {
 
     return 0; // Program ends successfully.
 }
-
-

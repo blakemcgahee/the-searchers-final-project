@@ -100,7 +100,7 @@ namespace ProjectUtils {
         std::ifstream infile(filename); // Attempt to open the file for reading.
 
         if (!infile.is_open()) { // Check if the file failed to open.
-            std::cerr << "Error: Could not open file '" << filename << "'. Please check the path and permissions.\n";
+            std::cerr << "Error: Could not open file '" << filename << "'. Please check the path and verify it is valid.\n";
             return false; // Indicate failure.
         }
 
