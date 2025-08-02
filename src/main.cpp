@@ -43,6 +43,10 @@ Comment: Refined team section comments for clarity and delegation since we were 
     - **Gerson's Section**: Streamlined instructions for the `main.cpp` for the user interface of Interpolation Search Implementation. 
 
 --------------------------------------------------------------------------------
+Change By: Gerson Diaz
+Change Date: 2025-08-02
+Comment: Updated main.cpp UI to accomadate functions outlined above and for function Interpolation Search Implementation.
+--------------------------------------------------------------------------------
 */
 
 // Helper function to find the 10 closest values to a target in a sorted dataset.
@@ -133,34 +137,28 @@ std::vector<int> findClosestValues(const std::vector<int>& dataset, int target) 
     return closest_values;
 }
 
-
-
-
-// --- GERSON'S SECTION: User Interface (CLI/Text) & Overall Project Integration ---
-// Gerson, your task is to implement the main application logic and the command-line user interface.
-// This will be done in a separate .cpp file (e.g., `main.cpp`) that includes this `ProjectUtils.h`.
-//
-// Your `main.cpp` should:
-// 1. Include this `ProjectUtils.h` header, along with `<string>` and `<limits>` for robust input handling.
-// 2. Implement a menu-driven program as outlined in the project proposal, offering options to:
-//    - Load a dataset from a file (using `ProjectUtils::loadAndSortDatasetFromFile`).
-//    - Generate a random dataset (using `ProjectUtils::generateAndSortDataset`).
-//    - Perform Jump Search (using `ProjectUtils::jumpSearch` and `ProjectUtils::measureSearchTime`).
-//    - Perform Interpolation Search (using `ProjectUtils::interpolationSearch` and `ProjectUtils::measureSearchTime`).
-//    - Exit the program.
-// 3. Handle user input for menu choices and search targets, including robust input validation (e.g., ensuring numeric input, handling non-numeric characters).
-// 4. Display the results of searches (found/not found, index if found) and the measured timings for both search algorithms in a clear, formatted way.
-// 5. Ensure the program gracefully handles cases where a search is attempted without a dataset loaded.
-
-
+/**
+ * @brief Main function for the Search Algorithm Performance Study program.
+ *
+ * This program provides a menu-driven interface to compare the performance of
+ * Jump Search and Interpolation Search algorithms on different datasets.
+ *
+ * Features:
+ * - Load datasets from text files (automatically sorted)
+ * - Generate large random datasets (sorted)
+ * - Perform Jump Search with timing measurements
+ * - Perform Interpolation Search with timing measurements
+ * - Display closest values when search target isn't found
+ * @return int Returns 0 on successful program termination
+ */
 int main() {
-    std::vector<int> dataset; // The dataset to be used for searching.
-    // You might define default sizes/ranges for random generation here or prompt the user for them.
+    std::vector<int> dataset; // This vector will hold our active dataset.
 
+    // Gerson's main UI loop.
     int choice;
     do {
         // Display the main menu to the user.
-        std::cout << "\n-----------------------------------------------\n";
+        std::cout << "\n-------------------------------------------------\n";
         std::cout << "|          Search Algorithm Performance Study   |\n";
         std::cout << "-------------------------------------------------\n";
         std::cout << "| 1. Load Dataset from File                     |\n"; // Option to load from a text file.
@@ -177,16 +175,20 @@ int main() {
         // with `std::getline` later, as `std::cin >> int` leaves the newline character in the buffer.
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-        if (choice == 1) { // Load Dataset from File
-            // Prompt user for filename.
-            // Call ProjectUtils::loadAndSortDatasetFromFile.
-        } else if (choice == 2) { // User chose to generate a random dataset.
+        if (choice == 1) { // User chose to load a dataset from a file.
+            std::string filename;
+            std::cout << "> Enter filename (e.g., data.txt or ../data/data_100k_random.txt): ";
+            std::getline(std::cin, filename); // Read the full filename, including spaces if any.
+            ProjectUtils::loadAndSortDatasetFromFile(dataset, filename); // Call Blake's function to load and sort.
+        }
+        else if (choice == 2) { // User chose to generate a random dataset.
             // Define default parameters for random dataset generation.
             const int DEFAULT_GEN_SIZE = 1000000;
             const int DEFAULT_MIN_VAL = 1;
             const int DEFAULT_MAX_VAL = 10000000;
             ProjectUtils::generateAndSortDataset(dataset, DEFAULT_GEN_SIZE, DEFAULT_MIN_VAL, DEFAULT_MAX_VAL);
-        } else if (choice == 3) { // User chose to perform Jump Search.
+        }
+        else if (choice == 3) { // User chose to perform Jump Search.
             // Check if a dataset is available before attempting to search.
             if (dataset.empty()) {
                 std::cout << "No dataset loaded! Please load or generate a dataset first.\n";
@@ -227,11 +229,45 @@ int main() {
             // Display the time taken, converted from microseconds to milliseconds.
             std::cout << "Jump Search Time: " << duration_us / 1000.0 << " ms\n";
 
-        } else if (choice == 4) { // --- GERSON'S SECTION: Interpolation Search Implementation ---)
-            // Check if dataset is loaded.
-            // Prompt user for target value.
-            // Call ProjectUtils::measureSearchTime with ProjectUtils::interpolationSearch (once Thiago implements it).
-            // Display results (found/not found, index, time).
+        }
+        else if (choice == 4) { // User chose to perform Interpolation Search.
+            // Check if a dataset is available.
+            if (dataset.empty()) {
+                std::cout << "No dataset loaded! Please load or generate a dataset first.\n";
+                continue; // Go back to the main menu.
+            }
+            int target;
+            std::cout << "> Enter value to search: ";
+            // --- Input validation for target ---
+            while (!(std::cin >> target)) { // Attempt to read integer. If fails...
+                std::cout << "Invalid input. Please enter a valid integer: ";
+                std::cin.clear(); // Clear the error flags on std::cin
+                // Discard invalid input from the buffer until a newline is found
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            }
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Clear leftover newline
+
+            int found_idx;
+            long long duration_us = ProjectUtils::measureSearchTime(
+                [&](const std::vector<int>& arr, int val) { return ProjectUtils::interpolationSearch(arr, val); },
+                dataset, target, found_idx
+            );
+            if (found_idx != -1) {
+                std::cout << "Value " << target << " found at index " << found_idx << ".\n";
+            }
+            else {
+                std::cout << "Value " << target << " not found.\n";
+                std::vector<int> closest = findClosestValues(dataset, target);
+                if (!closest.empty()) {
+                    std::cout << "Closest values in the dataset:\n";
+                    for (int val : closest) {
+                        std::cout << val << " ";
+                    }
+                    std::cout << "\n";
+                }
+            }
+            std::cout << "Interpolation Search Time: " << duration_us / 1000.0 << " ms\n";
+        }
         else if (choice == 5) { // User chose to exit the program.
             std::cout << "Exiting program. Goodbye!\n";
         }
@@ -242,3 +278,5 @@ int main() {
 
     return 0; // Program ends successfully.
 }
+
+
