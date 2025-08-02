@@ -10,7 +10,7 @@
 #include <fstream>     // For file input/output operations (std::ifstream).
 #include <string>      // For std::string and std::getline.
 #include <unordered_set> // For ensuring uniqueness during data generation.
-#include <limits>      // For std::numeric_limits, used to clear input buffer
+
 
 /*
 Change Log:
@@ -38,23 +38,30 @@ Change Date: 2025-07-05
 Comment: Refined team section comments for clarity and delegation since we were unable to meet on 7/5.
     - **Thiago's Section**: Streamlined instructions for the `interpolationSearch` implementation, providing the function signature and a clear directive for his task within the `ProjectUtils` namespace.
     - **Gerson's Section**: Streamlined instructions for the `main.cpp` for the user interface of Interpolation Search Implementation.
+--------------------------------------------------------------------------------
+Change By: Thiago Ramirez
+Change Date: 2025-08-01
+Comment: Completed and tested implementation of `interpolationSearch` within the `ProjectUtils` namespace.
+    - Algorithm efficiently estimates target position based on data distribution, improving over binary search for uniformly distributed datasets.
+    - Includes edge case handling for narrow ranges, single-element conditions, and potential integer overflows during probe calculation.
 
- --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 */
+
 
 // This namespace encapsulates utility functions related to dataset management and search algorithms.
 namespace ProjectUtils {
 
-    /*
-     Generates a large dataset of unique integers and sorts it.
-    
-     This function populates the provided vector with a specified number of unique random integers
-     within a defined range. After generation, the vector is sorted in ascending order.
-    
-     @param dataset A reference to the std::vector<int> to be populated and sorted.
-     @param num_elements The desired number of unique elements to generate.
-     @param min_val The minimum possible value for generated integers.
-     @param max_val The maximum possible value for generated integers.
+    /**
+     * @brief Generates a large dataset of unique integers and sorts it.
+     *
+     * This function populates the provided vector with a specified number of unique random integers
+     * within a defined range. After generation, the vector is sorted in ascending order.
+     *
+     * @param dataset A reference to the std::vector<int> to be populated and sorted.
+     * @param num_elements The desired number of unique elements to generate.
+     * @param min_val The minimum possible value for generated integers.
+     * @param max_val The maximum possible value for generated integers.
      */
     void generateAndSortDataset(std::vector<int>& dataset, int num_elements, int min_val, int max_val) {
         dataset.clear(); // Clear any existing data in the vector.
@@ -77,16 +84,16 @@ namespace ProjectUtils {
         std::cout << "Dataset generated and sorted with " << dataset.size() << " unique elements.\n";
     }
 
-    /*
-     @brief Loads a dataset of integers from a specified file, removes duplicates, and sorts it.
-     
-     This function reads integers from the given file, with each integer expected on a new line.
-     It includes error handling for file opening and invalid data formats. After loading,
-     the dataset is sorted in ascending order, and then duplicate values are removed.
-     
-     @param dataset A reference to the std::vector<int> to be populated and sorted.
-     @param filename The path to the input file containing integers.
-     @return True if the file was successfully opened and data loaded, false otherwise.
+    /**
+     * @brief Loads a dataset of integers from a specified file, removes duplicates, and sorts it.
+     *
+     * This function reads integers from the given file, with each integer expected on a new line.
+     * It includes error handling for file opening and invalid data formats. After loading,
+     * the dataset is sorted in ascending order, and then duplicate values are removed.
+     *
+     * @param dataset A reference to the std::vector<int> to be populated and sorted.
+     * @param filename The path to the input file containing integers.
+     * @return True if the file was successfully opened and data loaded, false otherwise.
      */
     bool loadAndSortDatasetFromFile(std::vector<int>& dataset, const std::string& filename) {
         dataset.clear(); // Clear any existing data in the vector.
@@ -133,16 +140,16 @@ namespace ProjectUtils {
         return true; // Indicate success.
     }
 
-    /*
-     @brief Implements the Jump Search algorithm for sorted arrays.
-     
-     Jump Search works by jumping ahead by fixed steps (block size) until the range
-     containing the target value is found. A linear search is then performed within that block.
-     The optimal block size is typically the square root of the array size.
-     
-     @param arr The sorted vector of integers to search within.
-     @param target The integer value to search for.
-     @return The index of the target if found, otherwise -1.
+    /**
+     * @brief Implements the Jump Search algorithm for sorted arrays.
+     *
+     * Jump Search works by jumping ahead by fixed steps (block size) until the range
+     * containing the target value is found. A linear search is then performed within that block.
+     * The optimal block size is typically the square root of the array size.
+     *
+     * @param arr The sorted vector of integers to search within.
+     * @param target The integer value to search for.
+     * @return The index of the target if found, otherwise -1.
      */
     int jumpSearch(const std::vector<int>& arr, int target) {
         int n = arr.size();
@@ -173,19 +180,71 @@ namespace ProjectUtils {
         return -1; // Target not found in the array.
     }
 
+
     /**
-     @brief Measures the execution time of a given search function.
-     
-     This templated function takes a search function (e.g., a lambda or function pointer),
-     the dataset, the target value, and a reference to store the found index.
-     It returns the duration of the search in microseconds.
-     
-     @tparam Func A callable type representing the search algorithm (e.g., `int(const std::vector<int>&, int)`).
-     @param search_func The search function to be measured.
-     @param dataset The dataset (vector) to search within.
-     @param target The value to search for.
-     @param result_index A reference to an int where the found index will be stored.
-     @return The duration of the search in microseconds.
+     * @brief Implements the Interpolation Search algorithm for sorted arrays.
+     *
+     * Interpolation Search is an improvement over Binary Search for uniformly
+     * distributed data. It estimates the position of the target value based on
+     * its value relative to the values at the ends of the search space.
+     *
+     * @param arr The sorted vector of integers to search within.
+     * @param target The integer value to search for.
+     * @return The index of the target if found, otherwise -1.
+     */
+    int interpolationSearch(const std::vector<int>& arr, int target) {
+        int low = 0;
+        int high = arr.size() - 1;
+
+        while (low <= high && target >= arr[low] && target <= arr[high]) {
+            // If the search space has shrunk to a single element.
+            if (low == high) {
+                if (arr[low] == target) return low;
+                return -1; // Not found
+            }
+
+            // Calculate the probe position using the interpolation formula.
+            // Using long long for intermediate calculations to prevent overflow,
+            // especially when (high - low) * (target - arr[low]) is large.
+            long long pos_calc = (long long)low + (((long long)high - low) / (arr[high] - arr[low])) * (target - arr[low]);
+
+            // Ensure pos_calc is within valid array bounds [low, high].
+            // This check is important to prevent out-of-bounds access if the formula
+            // yields an invalid index due to non-uniform data or edge cases.
+            if (pos_calc < low || pos_calc > high) {
+                return -1; // Probe position is out of the current search range.
+            }
+            int pos = static_cast<int>(pos_calc);
+
+            if (arr[pos] == target) {
+                return pos; // Target found at probe position.
+            }
+
+            // Adjust search space based on comparison.
+            if (arr[pos] < target) {
+                low = pos + 1; // Target is in the right part.
+            }
+            else {
+                high = pos - 1; // Target is in the left part.
+            }
+        }
+        return -1; // Target not found.
+    }
+
+
+    /**
+     * @brief Measures the execution time of a given search function.
+     *
+     * This templated function takes a search function (e.g., a lambda or function pointer),
+     * the dataset, the target value, and a reference to store the found index.
+     * It returns the duration of the search in microseconds.
+     *
+     * @tparam Func A callable type representing the search algorithm (e.g., `int(const std::vector<int>&, int)`).
+     * @param search_func The search function to be measured.
+     * @param dataset The dataset (vector) to search within.
+     * @param target The value to search for.
+     * @param result_index A reference to an int where the found index will be stored.
+     * @return The duration of the search in microseconds.
      */
     template<typename Func>
     long long measureSearchTime(Func search_func, const std::vector<int>& dataset, int target, int& result_index) {
@@ -197,27 +256,5 @@ namespace ProjectUtils {
     }
 
 } // namespace ProjectUtils
-
-// --- THIAGO'S SECTION: Interpolation Search algorithm ---
-// Thiago, your task is to implement the Interpolation Search algorithm within the ProjectUtils namespace.
-// This function should take a sorted vector of integers and a target value, and return the index
-// of the target if found, or -1 otherwise.
-//
-// Function Signature:
-// int interpolationSearch(const std::vector<int>& arr, int target);
-//
-// Remember to include appropriate comments explaining your implementation.
-//
-/*
-namespace ProjectUtils {
-    int interpolationSearch(const std::vector<int>& arr, int target) {
-        // Implement your Interpolation Search logic here.
-        // It should efficiently find the target in a sorted array,
-        // leveraging the distribution of values.
-        return -1; // Placeholder: Return the actual index or -1 if not found.
-    }
-} // namespace ProjectUtils
-*/
-
 
 #endif // PROJECT_UTILS_H
